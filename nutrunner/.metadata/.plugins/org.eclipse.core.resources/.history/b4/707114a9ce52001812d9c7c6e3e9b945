@@ -1,0 +1,366 @@
+package org.hasder.nutrunner;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLContext;
+
+import org.apache.http.ExceptionLogger;
+import org.apache.http.HttpConnection;
+import org.apache.http.HttpEntityEnclosingRequest;
+import org.apache.http.HttpException;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.MethodNotSupportedException;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.nio.bootstrap.HttpServer;
+import org.apache.http.impl.nio.bootstrap.ServerBootstrap;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.nio.entity.NStringEntity;
+import org.apache.http.nio.protocol.BasicAsyncRequestConsumer;
+import org.apache.http.nio.protocol.BasicAsyncResponseProducer;
+import org.apache.http.nio.protocol.HttpAsyncExchange;
+import org.apache.http.nio.protocol.HttpAsyncRequestConsumer;
+import org.apache.http.nio.protocol.HttpAsyncRequestHandler;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.protocol.HttpCoreContext;
+import org.apache.http.util.EntityUtils;
+
+public class Nutrunner {
+
+	
+	Socket clientSocket;// = new Socket("192.168.0.35", 4545);
+	PrintWriter out;// = new PrintWriter(clientSocket.getOutputStream(), true);
+	BufferedReader inFromServer;// = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+	int numberOfNotifications;
+	
+	public static void main(String argv[]) throws Exception {
+
+		Config config = new Config();
+		String nutrunnerip = config.getProperty("nutrunnerip");
+		String nutrunnerport = config.getProperty("nutrunnerport");
+		String ownip = config.getProperty("ownip");
+		String serviceregistryip = config.getProperty("serviceregistryip");
+		if (nutrunnerip == null || nutrunnerport == null || ownip == null || serviceregistryip == null ) {
+			System.err.println("Configuration file error. Please check config.cfg in the root of the java jar executable.");
+		}
+		
+		Nutrunner nutrunner = new Nutrunner();
+		nutrunner.startServiceProvider();
+		
+		ServiceRegistration registration = new ServiceRegistration(ownip, serviceregistryip);
+		registration.doPeriodicRegistration();
+
+		//nutrunner.clientSocket = new Socket("192.168.0.35", 4545);
+		nutrunner.clientSocket = new Socket(nutrunnerip, Integer.parseInt(nutrunnerport));
+		nutrunner.out = new PrintWriter(nutrunner.clientSocket.getOutputStream(), true);
+		nutrunner.inFromServer = new BufferedReader(new InputStreamReader(nutrunner.clientSocket.getInputStream()));
+		
+		
+		nutrunner.sendStartCommunications(nutrunner.out, nutrunner.inFromServer);
+		nutrunner.ToolDataUploadRequest(nutrunner.out, nutrunner.inFromServer);
+		nutrunner.lastTighteningResultDataSubscribe(nutrunner.out, nutrunner.inFromServer);
+
+		nutrunner.startRunnableListener();
+		
+		// String sentence;
+		// String modifiedSentence;
+
+//		Socket clientSocket = new Socket("192.168.0.35", 4545);
+//		// DataOutputStream outToServer = new
+//		// DataOutputStream(clientSocket.getOutputStream());
+//		PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+//		BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+//
+//		// alarm
+//		// sentence = "00530071 01E404021031042008-09-25:10:14:16\0";
+//
+//		// start
+//		// 0020
+//		// 0001
+//		// 003
+//		// .........
+//		// \0
+//		// sentence = "00200001003 \0";
+//		//
+//		// System.out.println("TO SERVER: " + sentence);
+//		// System.out.println("Length: " + sentence.length());
+//		//
+//		// //outToServer.writeUTF(sentence);
+//		// out.println(sentence);
+//		// modifiedSentence = inFromServer.readLine();
+//		// System.out.println("FROM SERVER: " + modifiedSentence);
+//
+//		nutrunner.sendStartCommunications(out, inFromServer);
+//		nutrunner.ToolDataUploadRequest(out, inFromServer);
+//		nutrunner.sendStopCommunications(out, inFromServer);
+//		clientSocket.close();
+		
+		
+	}
+	
+	
+	
+	
+	
+	
+	
+	public void startServiceProvider() throws Exception {
+
+		int port = 8085;
+
+		final IOReactorConfig config = IOReactorConfig.custom().setSoTimeout(15000).setTcpNoDelay(true).build();
+
+		//final HttpServer server = ServerBootstrap.bootstrap().setListenerPort(port).setServerInfo("Test/1.1").setIOReactorConfig(config).setSslContext(sslContext).setExceptionLogger(ExceptionLogger.STD_ERR).registerHandler("*", new HttpRequestHandler()).create();
+		final HttpServer server = ServerBootstrap.bootstrap().setListenerPort(port).setServerInfo("Test/1.1").setIOReactorConfig(config).setExceptionLogger(ExceptionLogger.STD_ERR).registerHandler("*", new HttpRequestHandler()).create();
+
+		server.start();
+		//System.out.println("Serving service on " + server.getEndpoint().getAddress() + (sslContext == null ? "" : " with " + sslContext.getProvider() + " " + sslContext.getProtocol()));
+		System.out.println("Serving service on " + server.getEndpoint().getAddress() );
+		//server.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+
+		
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				server.shutdown(5, TimeUnit.SECONDS);
+			}
+		});
+	}
+
+	class HttpRequestHandler implements HttpAsyncRequestHandler<HttpRequest> {
+
+
+
+		public HttpRequestHandler() {
+			super();
+		}
+
+		public HttpAsyncRequestConsumer<HttpRequest> processRequest(final HttpRequest request,
+				final HttpContext context) {
+			// Buffer request content in memory for simplicity
+			return new BasicAsyncRequestConsumer();
+		}
+
+		public void handle(final HttpRequest request, final HttpAsyncExchange httpexchange, final HttpContext context)
+				throws HttpException, IOException {
+			final HttpResponse response = httpexchange.getResponse();
+			try {
+				handleInternal(request, response, context);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			httpexchange.submitResponse(new BasicAsyncResponseProducer(response));
+		}
+
+		private void handleInternal(final HttpRequest request, final HttpResponse response, final HttpContext context)
+				throws HttpException, IOException, InterruptedException {
+
+			final String method = request.getRequestLine().getMethod().toUpperCase(Locale.ENGLISH);
+			//if (!method.equals("GET") && !method.equals("HEAD") && !method.equals("POST")) {
+			if (!method.equals("GET") && !method.equals("POST")) {
+				throw new MethodNotSupportedException(method + " method not supported");
+			}
+
+			final String target = request.getRequestLine().getUri();
+
+			
+			if(method.equals("GET")) {
+				System.out.println("Get received. Sending: " + numberOfNotifications);
+				final HttpCoreContext coreContext = HttpCoreContext.adapt(context);
+				final HttpConnection conn = coreContext.getConnection(HttpConnection.class);
+				response.setStatusCode(HttpStatus.SC_OK);
+				final NStringEntity body = new NStringEntity("" + numberOfNotifications , ContentType.TEXT_PLAIN);
+				response.setEntity(body);
+				System.out.println(conn + ": sending a json string entity ");
+				
+				
+			} else if (method.equals("POST")) {
+				System.out.println("request.toString(): " + EntityUtils.toString(((HttpEntityEnclosingRequest)request).getEntity()));
+				numberOfNotifications = 0;
+				//Socket clientSocket = new Socket("192.168.0.35", 4545);
+				//PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+				//BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+//				sendStartCommunications(out, inFromServer);
+//				ToolDataUploadRequest(out, inFromServer);
+//				lastTighteningResultDataSubscribe(out, inFromServer);
+				//sendStopCommunications(out, inFromServer);
+				//clientSocket.close();
+				final HttpCoreContext coreContext = HttpCoreContext.adapt(context);
+				final HttpConnection conn = coreContext.getConnection(HttpConnection.class);
+				response.setStatusCode(HttpStatus.SC_OK);
+				final NStringEntity body = new NStringEntity("{\"Response from service\":\"Workpiece Arrival\",\"target\":\"" + target + "\"}", ContentType.APPLICATION_JSON);
+				//final NFileEntity body = new NFileEntity(file, ContentType.create("text/html"));
+				response.setEntity(body);
+				System.out.println(conn + ": sending a json string entity ");
+			}
+			
+			
+			
+			
+
+		}
+
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	// MID 0040
+	public void ToolDataUploadRequest(PrintWriter out, BufferedReader inFromServer)
+			throws IOException, InterruptedException {
+		String sentence = "00200040001         \0";
+
+		System.out.println("TO SERVER: " + sentence);
+		System.out.println("Length: " + sentence.length());
+		out.println(sentence);
+		Thread.sleep(300);
+
+		// String modifiedSentence = inFromServer.readLine();
+		char[] cbuf = new char[1000];
+		inFromServer.read(cbuf);
+		String modifiedSentence = new String(cbuf);
+		System.out.println("FROM SERVER: " + modifiedSentence);
+	}
+
+	boolean listenerSarted = false;
+	public void startRunnableListener() {
+		if(!listenerSarted) {
+			Thread th = new Thread(runnableListener);
+			th.start();
+		}
+	}
+	
+	Runnable runnableListener = new Runnable() {
+
+		@Override
+		public void run() {
+			while(true) {
+				try {
+					char[] cbuf = new char[1000];
+					int i = inFromServer.read(cbuf);
+					
+					if(i>0) {
+						String modifiedSentence = new String(cbuf);
+						System.out.println("FROM SERVER: " + modifiedSentence);
+						System.out.println("Command: " + modifiedSentence.substring(4, 8));					
+						if(modifiedSentence.substring(4, 8).equals("0061")) {
+							System.out.println("Notification");
+							if(modifiedSentence.charAt(120) == '1') {
+								numberOfNotifications++;
+								System.out.println("ACK");
+							} else {
+								System.out.println("NOK");
+							}
+							//out.println("00240005            0061\0");
+	//						out.println("00200060003         \0");
+							String sentence = "00200062003         \0";
+	
+							System.out.println("TO SERVER: " + sentence);
+							System.out.println("Length: " + sentence.length());
+							out.println(sentence);
+							Thread.sleep(300);
+						}
+					} else {
+
+						sendStopCommunications(out, inFromServer);
+						Thread.sleep(300);
+						out.close();
+						inFromServer.close();
+						clientSocket.close();
+						Thread.sleep(600);
+						clientSocket = new Socket("192.168.0.35", 4545);
+						out = new PrintWriter(clientSocket.getOutputStream(), true);
+						inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
+						Thread.sleep(300);					
+						
+						sendStartCommunications(out, inFromServer);
+						ToolDataUploadRequest(out, inFromServer);
+						lastTighteningResultDataSubscribe(out, inFromServer);
+					}
+					Thread.sleep(300);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+		}
+		
+	};
+	
+	// MID 0060
+	public void lastTighteningResultDataSubscribe(PrintWriter out, BufferedReader inFromServer)
+			throws IOException, InterruptedException {
+		String sentence = "00200060003         \0";
+
+		System.out.println("TO SERVER: " + sentence);
+		System.out.println("Length: " + sentence.length());
+		out.println(sentence);
+		Thread.sleep(300);
+
+		// String modifiedSentence = inFromServer.readLine();
+		char[] cbuf = new char[1000];
+		inFromServer.read(cbuf);
+		String modifiedSentence = new String(cbuf);
+		System.out.println("FROM SERVER: " + modifiedSentence);
+		
+	}
+
+	// MID 0001
+	public void sendStartCommunications(PrintWriter out, BufferedReader inFromServer)
+			throws IOException, InterruptedException {
+		String sentence = "00200001003         \0";
+
+		System.out.println("TO SERVER: " + sentence);
+		System.out.println("Length: " + sentence.length());
+		out.println(sentence);
+		Thread.sleep(300);
+
+		// String modifiedSentence = inFromServer.readLine();
+		char[] cbuf = new char[1000];
+		inFromServer.read(cbuf);
+		String modifiedSentence = new String(cbuf);
+		System.out.println("FROM SERVER: " + modifiedSentence);
+	}
+	
+	// MID 0003
+	public void sendStopCommunications(PrintWriter out, BufferedReader inFromServer)
+			throws IOException, InterruptedException {
+		String sentence = "00200003003         \0";
+
+		System.out.println("TO SERVER: " + sentence);
+		System.out.println("Length: " + sentence.length());
+		out.println(sentence);
+		Thread.sleep(300);
+
+		// String modifiedSentence = inFromServer.readLine();
+		char[] cbuf = new char[1000];
+		inFromServer.read(cbuf);
+		String modifiedSentence = new String(cbuf);
+		System.out.println("FROM SERVER: " + modifiedSentence);
+	}
+
+}

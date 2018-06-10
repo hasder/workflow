@@ -1,0 +1,276 @@
+package org.kbit.instructor;
+
+import java.util.LinkedList;
+import java.util.Observable;
+import java.util.Observer;
+
+import org.kbit.common.MachineTemplate;
+import org.kbit.common.State;
+import org.kbit.common.data.JobData;
+import org.kbit.common.data.JobNotice;
+import org.kbit.common.data.WorkInstruction;
+
+
+public class Machine extends MachineTemplate implements Observer {
+
+	
+	State initializeState;
+	State awaitInstructionState;
+	State sendEquipmentInstructionState;
+	State awaitEquipmentNotificationState;
+	State notifyPresenterState;
+	State notifyWorkstationState;
+	
+	EquipmentServiceConsumer jobConsumer;
+	WorkServiceConsumer workServiceConsumer;
+	PresenterUpdateServiceConsumer presenterUpdateServiceConsumer;
+	
+	WorkInstruction currentInstruction = new WorkInstruction();
+	LinkedList<JobNotice> jobNotifications ;
+	
+	//int notifications = 0;
+	
+	
+	public Machine() {
+		super("initializeState");
+		
+		jobNotifications = new LinkedList<JobNotice>();
+		
+		initializeState = new InitializeState();
+		awaitInstructionState = new AwaitInstructionState();
+		sendEquipmentInstructionState = new SendEquipmentInstructionState();
+		awaitEquipmentNotificationState = new AwaitEquipmentNotificationState();
+		notifyPresenterState = new NotifyPresenterState();
+		notifyWorkstationState = new NotifyWorkstationState();
+		
+		this.addState("initializeState", initializeState, "true");
+		this.addState("awaitInstructionState", awaitInstructionState, "onNotification");
+		this.addState("sendEquipmentInstructionState", sendEquipmentInstructionState, "true");
+		this.addState("awaitEquipmentNotificationState", awaitEquipmentNotificationState, "onNotification");
+		this.addState("notifyPresenterState", notifyPresenterState, "transitionConditions");
+		this.addState("notifyWorkstationState", notifyWorkstationState, "transitionConditions");
+		
+		
+		this.perform();
+	}
+	
+	public void addWorkServiceConsumer(WorkServiceConsumer consumer) {
+		workServiceConsumer = consumer;
+	}
+	
+	public void addPresenterUpdateServiceConsumer(PresenterUpdateServiceConsumer consumer) {
+		presenterUpdateServiceConsumer = consumer;
+	}
+
+	
+	public boolean workNotification(WorkServiceConsumer arg) {
+		switch (currentState) {
+			case "awaitInstructionState":
+				System.out.println("" + arg.instruction);	
+				if(arg.instruction.equals("clear")) {
+					System.out.println("> no new instruction at the moment");						
+				} else {
+					System.out.println("> received new work instruction - moving to state to sendEquipmentInstructionState");
+					//Gson gson = new Gson();
+					//currentInstruction = gson.fromJson(arg.instruction, WorkInstruction.class);
+					currentInstruction.fromSenMLPack(arg.instruction);
+					currentState = "sendEquipmentInstructionState";
+					//System.out.println("executingState sendEquipmentInstructionState");
+					//this.perform();
+				}
+				return true;
+			default:
+				System.out.println("> received work notification while in wrong state..");//do nothing - not in right state for this input
+				return false;
+		}
+	}
+	
+	public boolean equipmentNotification(EquipmentNoticeServiceConsumer arg) {
+		switch (currentState) {
+			case "awaitEquipmentNotificationState":
+				System.out.println("> received new equipment notification - moving to state to notifyPresenterState");
+
+				JobNotice newJobNotification = new JobNotice();
+				newJobNotification.fromSenMLPack(arg.notification);
+				
+				jobNotifications.add(newJobNotification);
+				currentState = "notifyPresenterState";
+				//System.out.println("executingState notifyPresenterState");
+				//this.perform();
+				return true;
+			default:
+				System.out.println("> received equipment notification while in wrong state..");//do nothing - not in right state for this input
+				return false;
+		}
+	}
+	
+	public void addJobConsumer(EquipmentServiceConsumer jobConsumer) {
+		this.jobConsumer = jobConsumer; 
+	}
+	
+	@Override
+	public void perform() {
+		String nextState = null;
+		do {
+			System.out.println("executingState " + currentState);
+			nextState = this.getState(currentState).action(null);
+			if(nextState != null) {
+				currentState = nextState;
+			}
+		} while(nextState != null);
+	}
+
+
+	/// states implementation
+	
+	public class InitializeState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//System.out.println("InitializeState");
+			
+			return "awaitInstructionState";
+		}
+
+		
+	}
+	
+	public class AwaitInstructionState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//System.out.println("AwaitInstructionState");
+			return null;
+		}
+		
+	}
+	
+	public class SendEquipmentInstructionState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//System.out.println("SendEquipmentInstructionState");
+//			WorkInstruction work = new WorkInstruction();
+//			work.setId(123211);
+//			work.setQuantity(4);
+//			Gson gson = new Gson();
+//			
+//			
+//			jobConsumer.sendNewJob(gson.toJson(work));
+			
+			JobData job = new JobData();
+			job.setName(currentInstruction.getId());
+			job.setBatchSize(currentInstruction.getQuantity());
+			job.setTorqueFinalTarget(360);
+			job.setAngleFinalTarget(180);
+			
+			
+			jobConsumer.sendNewJob(job.toSenMLString());
+			return "awaitEquipmentNotificationState";
+		}
+
+		
+	}
+	
+	public class AwaitEquipmentNotificationState extends State {
+
+		@Override
+		public String action(Object arg) {
+			return null;
+		
+		}
+
+		
+	}
+	
+	public class NotifyPresenterState extends State {
+
+		@Override
+		public String action(Object arg) {
+
+			JobNotice notice = jobNotifications.removeFirst();
+			
+			System.out.println(notice.getName() + " = " + notice.getBatchCounter() + "/" + notice.getBatchSize());
+			//if (notifications < currentInstruction.getQuantity()) {
+			if (notice.getBatchCounter() < notice.getBatchSize()) {
+				presenterUpdateServiceConsumer.sendUpdateInstruction("{\"id\":\"" + notice.getName() + "\",\"status\": \"incomplete\",\"text\": \"Nutrunner\",\"count\": \"" + notice.getBatchSize() + "\",\"image\": \"na\",\"progress\": \"" + notice.getBatchCounter() + "/" + notice.getBatchSize() + "\"}");
+				if (jobNotifications.isEmpty()) {
+
+					return "awaitEquipmentNotificationState";
+				} else {
+
+					return "notifyPresenterState";
+				}
+			} else {
+				presenterUpdateServiceConsumer.sendUpdateInstruction("{\"id\":\"" + notice.getName() + "\",\"status\": \"complete\",\"text\": \"Nutrunner\",\"count\": \"" + notice.getBatchSize() + "\",\"image\": \"na\",\"progress\": \"" + notice.getBatchCounter() + "/" + notice.getBatchSize() + "\"}");
+				return "notifyWorkstationState";
+			}
+		}
+		
+	}
+	
+	public class NotifyWorkstationState extends State {
+		@Override
+		public String action(Object arg) {
+			//notifications = 0;
+			workServiceConsumer.sendProgress("Progress");
+			return "awaitInstructionState";
+			
+		}
+	}
+	
+	private volatile boolean running = true;
+	public void terminate() {
+		running = false;
+	}
+	boolean pending = false;
+	@Override
+	public void run() {
+		//start observers
+		
+		
+		while(running) {
+			
+			//if an event occurs then begin executing until guard condition not met 
+			if(pending == true) {
+				this.perform();
+				pending = false;
+			}
+			System.out.println("say somthing");
+			//sleep for a bit
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		//stop observers
+	}
+
+	@Override
+	public void update(Observable o, Object arg) {
+		 
+		if (o instanceof WorkServiceConsumer) {
+			System.out.println("Machine was notified of: " + ((WorkServiceConsumer) arg).instruction + " From WorkServiceConsumer");
+			if(workNotification((WorkServiceConsumer) arg)) {
+				pending = true;
+			}
+			
+		} else if (o instanceof EquipmentNoticeServiceConsumer) {
+			System.out.println("Machine was notified of: " + ((EquipmentNoticeServiceConsumer) arg).notification + " From EquipmentNoticeServiceConsumer");
+			if(equipmentNotification(((EquipmentNoticeServiceConsumer) arg))) {
+				pending = true;
+			}
+		}
+	}
+
+	
+	
+	
+	
+	
+	
+
+}

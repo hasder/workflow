@@ -1,0 +1,141 @@
+package org.kit.workflow;
+
+import java.io.IOException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+
+public class ServiceRegistration {
+
+
+	private final ScheduledExecutorService schedular = Executors.newScheduledThreadPool(1);
+	
+	public ServiceRegistration() { 	}
+	
+	public boolean doPeriodicRegistration() {
+		
+		
+		return false;
+		
+	}
+	
+	public boolean doRegistration() {
+		
+		StringBuilder serviceBuilder = new StringBuilder();
+		serviceBuilder.append("{\"name\":\"workflowmanager-abc123\",");
+		serviceBuilder.append("\"type\":\"workflowmanager._http-json._tcp\",");
+		serviceBuilder.append("\"host\":\"127.0.0.1\", \"port\":\"8888\",");
+		serviceBuilder.append("\"domain\":\"unknown\",");
+		serviceBuilder.append("\"properties\":{");
+		serviceBuilder.append("\"property\":");
+		serviceBuilder.append("[");
+		serviceBuilder.append("{");
+		serviceBuilder.append("\"name\":\"version\",");
+		serviceBuilder.append("\"value\":\"1.0\"");
+		serviceBuilder.append("},");
+		serviceBuilder.append("{");
+		serviceBuilder.append("\"name\":\"path\",");
+		serviceBuilder.append("\"value\":\"/workflowmanager\",");
+		serviceBuilder.append("\"loc\":\"Station-01\"");
+		serviceBuilder.append("}");
+		serviceBuilder.append("]");
+		serviceBuilder.append("}}");
+		
+		String service = serviceBuilder.toString();
+		System.out.println(service);
+		
+		//String srurl = "http://130.240.234.222:1100/servicediscovery/service/";
+		String srurl = "http://127.0.0.1:1100/servicediscovery/publish/";
+		String ip;
+		int port;
+		String path = "";
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			//HttpClient httpClient = new DefaultHttpClient();
+			HttpPost regRequest = new HttpPost( srurl);
+			regRequest.addHeader("content-type", "application/json");
+			
+			regRequest.setEntity(new StringEntity(service));
+			
+			HttpResponse response = httpClient.execute(regRequest);
+			
+			System.out.println("Response Code : " 
+	                + response.getStatusLine().getStatusCode());
+			
+			if (response.getStatusLine().getStatusCode() != 200) {
+				throw new RuntimeException("Failed : HTTP error code : "
+				   + response.getStatusLine().getStatusCode());
+			}
+			
+//			StringWriter writer = new StringWriter();
+//			IOUtils.copy(response.getEntity().getContent(), writer, "UTF-8" );
+//			String theString = writer.toString();
+//			
+//			Service[] serviceListResponse = new Gson().fromJson(theString, Service[].class);
+//			
+//			Service serviceResponse = serviceListResponse[0];
+//
+//			System.out.println("sevice name: " + serviceResponse.getName());
+//			System.out.println("sevice host: " + serviceResponse.getHost());
+//			ip = serviceResponse.getHost();
+//			System.out.println("sevice port: " + serviceResponse.getPort());
+//			port = serviceResponse.getPort();
+//			for (Property property : serviceResponse.getProperties().getProperty()) {
+//				if(property.getName().toLowerCase().equals("path")) {
+//					path = property.getValue();
+//				}
+//			}
+//			System.out.println("sevice path: " + path);
+//			
+//			//https://gto-productunit-hub-test.azurewebsites.net/api/GetProcessStepRouting?code=IZ3ByNNi1hi49487SQUB2VIO9z54EIs0PTbeTXuIem36AvY5an5R4Q==&chassisid=A819631&component=CAB&subcomponent=TCAB
+//			
+////			String url = "https://"+ip+":"+port+"/"+path;
+//			String url = "https://gto-productunit-hub-test.azurewebsites.net/api/GetProcessStepRouting";
+////			//?code=D6Z1wsx0wH6xsQ/1b6S/VKgRFVvU9yDbcaLicNHpxV7pL7DQdjoDlw==&chassisid=A819631&component=CAB&subcomponent=TCAB
+////		
+//			HttpGet getProcessStepRoute = new HttpGet( url + "?code=IZ3ByNNi1hi49487SQUB2VIO9z54EIs0PTbeTXuIem36AvY5an5R4Q==&chassisid=A819631&component=CAB&subcomponent=TCAB");
+//			
+//			getProcessStepRoute.addHeader("accept", "application/json");
+//			
+//
+//			HttpResponse response2 = httpClient.execute(getProcessStepRoute);
+//			
+//			writer = new StringWriter();
+//			IOUtils.copy(response2.getEntity().getContent(), writer, "UTF-8" );
+//			theString = writer.toString();
+//			
+//			GetProcessStepRouting processStepRouting = new Gson().fromJson(theString, GetProcessStepRouting.class);
+//			
+//
+//			
+//			for(OrderProcessStep orderProcessStep : processStepRouting.getOrderProcessSteps()) 
+//			{
+//				System.out.println("id = " + orderProcessStep.getId());
+//			}
+//			
+//
+//			httpClient.getConnectionManager().shutdown();
+//
+		  } catch (ClientProtocolException e) {
+
+			e.printStackTrace();
+
+		  } catch (IOException e) {
+
+			e.printStackTrace();
+		  }
+		
+		
+		
+		return false;
+		
+	}
+	
+}

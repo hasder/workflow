@@ -1,0 +1,32 @@
+package org.kbit.instructor;
+
+import java.util.Observable;
+
+import org.eclipse.californium.core.CoapClient;
+import org.eclipse.californium.core.CoapObserveRelation;
+import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+
+public class EquipmentServiceConsumer extends Observable {
+	CoapClient client = null;
+	CoapObserveRelation relation = null;
+	String instruction = "";
+	
+	
+	public EquipmentServiceConsumer(String addressURI) {
+		this.client = new CoapClient(addressURI);
+		
+	}
+	
+	public void sendNewJob(String jobText) {
+		CoapResponse response = this.client.post(jobText, 0);
+		if(response != null) {
+			if(response.getCode() == ResponseCode.CREATED) {
+				System.out.println("Job was created");
+			} else {
+				System.err.println("Job was not created");
+			}
+		}
+	}
+	
+}

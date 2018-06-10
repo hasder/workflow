@@ -1,0 +1,3 @@
+#nutrunner adaptor configuration file
+nutrunnerip = 192.168.0.35
+ownip = 192.168.0.36

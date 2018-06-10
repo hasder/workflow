@@ -1,0 +1,68 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+
+import { DisplayService } from './display.service';
+
+@Component({
+  selector: 'app-display',
+  template: `
+    <div>
+      <h2>Order id: A 819631</h2>
+      <table style="width:100%;">
+      <tr>
+        <th>Status</th>
+        <th>Instruction</th>
+        <th>Count</th>
+        <th>Image</th>
+        <th>Progress</th>
+      </tr>
+      <tr *ngFor="let inst of instructions">
+        <td>{{inst.status}}</td>
+        <td>{{inst.text}}</td>
+        <td>{{inst.count}}</td>
+        <td>{{inst.image}}</td>
+        <td>{{inst.progress}}</td>
+      </tr>
+
+    </table>
+    </div>
+  `,
+  styles: ['th{font-size: 2.0em;},td{text-align: center;border-top:solid;border-width:1px}'],
+  providers: [DisplayService]
+})
+export class DisplayComponent implements OnInit, OnDestroy {
+
+    instructions;
+    temp;
+    connection;
+    updatesConnection;
+    constructor(private displayService: DisplayService) { }
+
+    ngOnInit() {
+            this.connection = this.displayService.getInstructions().subscribe(instruction => {
+                this.temp = instruction;
+                if (this.temp.text instanceof Array) {
+                    this.instructions = this.temp.text; // JSON.parse(this.temp.text);
+                    console.log(JSON.stringify(this.instructions));
+                } else {
+                    console.log('Not an array');
+                }
+            });
+            this.updatesConnection = this.displayService.getUpdates().subscribe(update => {
+                this.temp = update;
+                console.log(this.instructions.length);
+                for (let i = 0; i < this.instructions.length; i++) {
+                    console.log(this.instructions[i].id + ' ' + this.temp.text.id);
+                    if (this.instructions[i].id === this.temp.text.id) {
+                        this.instructions[i] = this.temp.text;
+                        break;
+                    }
+                }
+            });
+    }
+
+    ngOnDestroy() {
+        this.connection.unsubscribe();
+        this.updatesConnection.unsubscribe();
+    }
+
+}

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+<fullyQualifiedTypeName name="java.io.BufferedReader"/>
+<fullyQualifiedTypeName name="java.io.InputStreamReader"/>
+<fullyQualifiedTypeName name="java.net.Socket"/>
+<fullyQualifiedTypeName name="java.io.PrintWriter"/>
+<fullyQualifiedTypeName name="java.io.DataOutputStream"/>
+<fullyQualifiedTypeName name="java.lang.StringBuilder"/>
+<fullyQualifiedTypeName name="javax.net.ssl.SSLContext"/>
+<fullyQualifiedTypeName name="org.apache.http.impl.nio.reactor.IOReactorConfig"/>
+<fullyQualifiedTypeName name="org.apache.http.impl.nio.bootstrap.HttpServer"/>
+<fullyQualifiedTypeName name="org.apache.http.impl.nio.bootstrap.ServerBootstrap"/>
+<fullyQualifiedTypeName name="java.util.concurrent.TimeUnit"/>
+<fullyQualifiedTypeName name="org.apache.http.nio.protocol.HttpAsyncRequestHandler"/>
+<fullyQualifiedTypeName name="org.apache.http.nio.protocol.HttpAsyncRequestConsumer"/>
+<fullyQualifiedTypeName name="org.apache.http.util.EntityUtils"/>
+<fullyQualifiedTypeName name="org.apache.http.HttpEntityEnclosingRequest"/>
+<fullyQualifiedTypeName name="org.apache.http.HttpException"/>
+<fullyQualifiedTypeName name="org.apache.http.HttpRequest"/>
+<fullyQualifiedTypeName name="org.apache.http.nio.protocol.HttpAsyncExchange"/>
+<fullyQualifiedTypeName name="org.apache.http.nio.protocol.BasicAsyncRequestConsumer"/>
+<fullyQualifiedTypeName name="org.apache.http.protocol.HttpContext"/>
+<fullyQualifiedTypeName name="org.apache.http.HttpResponse"/>
+<fullyQualifiedTypeName name="org.apache.http.nio.protocol.BasicAsyncResponseProducer"/>
+<fullyQualifiedTypeName name="java.util.Locale"/>
+<fullyQualifiedTypeName name="org.apache.http.MethodNotSupportedException"/>
+<fullyQualifiedTypeName name="org.apache.http.protocol.HttpCoreContext"/>
+<fullyQualifiedTypeName name="org.apache.http.HttpConnection"/>
+<fullyQualifiedTypeName name="org.apache.http.nio.entity.NStringEntity"/>
+<fullyQualifiedTypeName name="org.apache.http.HttpStatus"/>
+<fullyQualifiedTypeName name="org.apache.http.entity.ContentType"/>
+<fullyQualifiedTypeName name="org.apache.http.ExceptionLogger"/>
+<fullyQualifiedTypeName name="org.hasder.nutrunner.ServiceRegistration"/>
+<fullyQualifiedTypeName name="java.util.Properties"/>
+<fullyQualifiedTypeName name="org.hasder.nutrunner.Config"/>
+<fullyQualifiedTypeName name="java.lang.Error"/>
+</qualifiedTypeNameHistroy>

@@ -1,0 +1,5 @@
+package org.hasder.nutrunner;
+
+public class Configuration {
+
+}

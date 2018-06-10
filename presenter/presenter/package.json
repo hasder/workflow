@@ -1,0 +1,14 @@
+{
+  "name": "presenter",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "coap": "^0.21.0",
+    "express": "3.2.6",
+    "jade": "*",
+    "socket.io": "^2.0.3"
+  }
+}

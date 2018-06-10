@@ -1,0 +1,22 @@
+/**
+ * http://usejsdoc.org/
+ */
+
+var SerialPort = require('serialport');
+const Readline = SerialPort.parsers.Readline;
+var port = new SerialPort('com2', {
+	baudRate : 9600
+});
+const parser = new Readline();
+port.pipe(parser);
+parser.on('data', newproduct);
+
+
+var newproduct = function(id) {
+	console.log(buffer)
+};
+
+// Open errors will be emitted as an error event
+parser.on('error', function(err) {
+	console.log('Error: ', err.message);
+});

@@ -1,0 +1,248 @@
+package org.kbit.instructor;
+
+import java.util.Observable;
+import java.util.Observer;
+
+import org.kbit.common.JobData;
+import org.kbit.common.MachineTemplate;
+import org.kbit.common.SenMLPack;
+import org.kbit.common.State;
+import org.kbit.common.WorkInstruction;
+
+import com.google.gson.Gson;
+
+
+public class Machine extends MachineTemplate implements Observer {
+
+	
+	State initializeState;
+	State awaitInstructionState;
+	State sendEquipmentInstructionState;
+	State awaitEquipmentNotificationState;
+	State notifyPresenterState;
+	State notifyWorkstationState;
+	
+	EquipmentServiceConsumer jobConsumer;
+	WorkServiceConsumer workServiceConsumer;
+	PresenterUpdateServiceConsumer presenterUpdateServiceConsumer;
+	
+	public Machine() {
+		super("initializeState");
+		
+		initializeState = new InitializeState();
+		awaitInstructionState = new AwaitInstructionState();
+		sendEquipmentInstructionState = new SendEquipmentInstructionState();
+		awaitEquipmentNotificationState = new AwaitEquipmentNotificationState();
+		notifyPresenterState = new NotifyPresenterState();
+		notifyWorkstationState = new NotifyWorkstationState();
+		
+		this.addState("initializeState", initializeState, "true");
+		this.addState("awaitInstructionState", awaitInstructionState, "onNotification");
+		this.addState("sendEquipmentInstructionState", sendEquipmentInstructionState, "true");
+		this.addState("awaitEquipmentNotificationState", awaitEquipmentNotificationState, "onNotification");
+		this.addState("notifyPresenterState", notifyPresenterState, "transitionConditions");
+		this.addState("notifyWorkstationState", notifyWorkstationState, "transitionConditions");
+		
+		
+		this.perform();
+	}
+	
+	public void addWorkServiceConsumer(WorkServiceConsumer consumer) {
+		workServiceConsumer = consumer;
+	}
+	
+	public void addPresenterUpdateServiceConsumer(PresenterUpdateServiceConsumer consumer) {
+		presenterUpdateServiceConsumer = consumer;
+	}
+
+	WorkInstruction currentInstruction = new WorkInstruction();
+	public boolean workNotification(WorkServiceConsumer arg) {
+		switch (currentState) {
+			case "awaitInstructionState":
+				System.out.println("" + arg.instruction);	
+				if(arg.instruction.equals("clear")) {
+					System.out.println("> no new instruction at the moment");						
+				} else {
+					System.out.println("> received new work instruction - moving to state to sendEquipmentInstructionState");
+					//Gson gson = new Gson();
+					//currentInstruction = gson.fromJson(arg.instruction, WorkInstruction.class);
+					currentInstruction.fromSenMLPack(arg.instruction);
+					currentState = "sendEquipmentInstructionState";
+					//System.out.println("executingState sendEquipmentInstructionState");
+					//perform();
+				}
+				return true;
+			default:
+				System.out.println("> received work notification while in wrong state..");//do nothing - not in right state for this input
+				return false;
+		}
+	}
+	
+	public boolean equipmentNotification(Object arg) {
+		switch (currentState) {
+			case "awaitEquipmentNotificationState":
+				System.out.println("> received new equipment notification - moving to state to notifyPresenterState");
+				currentState = "notifyPresenterState";
+				//System.out.println("executingState notifyPresenterState");
+				//perform();
+				return true;
+			default:
+				System.out.println("> received work notification while in wrong state..");//do nothing - not in right state for this input
+				return false;
+		}
+	}
+	
+	public void addJobConsumer(EquipmentServiceConsumer jobConsumer) {
+		this.jobConsumer = jobConsumer; 
+	}
+	
+	@Override
+	public void perform() {
+		String nextState = null;
+		do {
+			System.out.println("executingState " + currentState);
+			nextState = this.getState(currentState).action(null);
+			if(nextState != null) {
+				currentState = nextState;
+			}
+		} while(nextState != null);
+	}
+
+
+	/// states implementation
+	
+	public class InitializeState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//System.out.println("InitializeState");
+			
+			return "awaitInstructionState";
+		}
+
+		
+	}
+	
+	public class AwaitInstructionState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//System.out.println("AwaitInstructionState");
+			return null;
+		}
+		
+	}
+	
+	public class SendEquipmentInstructionState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//System.out.println("SendEquipmentInstructionState");
+//			WorkInstruction work = new WorkInstruction();
+//			work.setId(123211);
+//			work.setQuantity(4);
+//			Gson gson = new Gson();
+//			
+//			
+//			jobConsumer.sendNewJob(gson.toJson(work));
+			
+			JobData job = new JobData();
+			job.setName(currentInstruction.getId());
+			job.setBatchSize(currentInstruction.getQuantity());
+			job.setTorqueFinalTarget(360);
+			job.setAngleFinalTarget(180);
+			
+			
+			jobConsumer.sendNewJob(job.toSenMLString());
+			return "awaitEquipmentNotificationState";
+		}
+
+		
+	}
+	
+	public class AwaitEquipmentNotificationState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//System.out.println("AwaitEquipmentNotificationState");
+			return null;
+		}
+
+		
+	}
+	int notifications = 0;
+	public class NotifyPresenterState extends State {
+
+		@Override
+		public String action(Object arg) {
+			notifications++;
+			System.out.println(currentInstruction.getId() + ": " + notifications + "/" + currentInstruction.getQuantity());
+			if (notifications < currentInstruction.getQuantity()) {
+				presenterUpdateServiceConsumer.sendUpdateInstruction("{\"id\":" + currentInstruction.getId() + ",\"status\": \"incomplete\",\"text\": \"Nutrunner\",\"count\": \"" + currentInstruction.getQuantity() + "\",\"image\": \"na\",\"progress\": \"" + notifications + "/" + currentInstruction.getQuantity() + "\"}");
+				return "awaitEquipmentNotificationState";
+			} else {
+				presenterUpdateServiceConsumer.sendUpdateInstruction("{\"id\":" + currentInstruction.getId() + ",\"status\": \"complete\",\"text\": \"Nutrunner\",\"count\": \"" + currentInstruction.getQuantity() + "\",\"image\": \"na\",\"progress\": \"" + notifications + "/" + currentInstruction.getQuantity() + "\"}");
+				return "notifyWorkstationState";
+			}
+			
+		}
+		
+	}
+	
+	public class NotifyWorkstationState extends State {
+		@Override
+		public String action(Object arg) {
+			workServiceConsumer.sendProgress("Progress");
+			return "awaitInstructionState";
+			
+		}
+	}
+	
+	private volatile boolean running = true;
+	public void terminate() {
+		running = false;
+	}
+	
+	@Override
+	public void run() {
+		//start observers
+		
+		
+		while(running) {
+			
+			//if an event occurs then begin executing until guard condition not met 
+			perform();
+			
+			//sleep for a bit
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		//stop observers
+	}
+
+	@Override
+	public void update(Observable o, Object arg) {
+		 
+		if (o instanceof WorkServiceConsumer) {
+			System.out.println("Machine was notified of: " + ((WorkServiceConsumer) arg).instruction + " From WorkServiceConsumer");
+			workNotification((WorkServiceConsumer) arg);
+			
+		} else if (o instanceof EquipmentNoticeServiceConsumer) {
+			System.out.println("Machine was notified of: " + ((EquipmentNoticeServiceConsumer) arg).notification + " From EquipmentNoticeServiceConsumer");
+			equipmentNotification(null);
+		}
+	}
+
+	
+	
+	
+	
+	
+	
+
+}

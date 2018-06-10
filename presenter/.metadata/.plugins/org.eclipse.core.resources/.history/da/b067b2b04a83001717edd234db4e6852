@@ -1,0 +1,267 @@
+package org.kit.workstation;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
+import java.util.Scanner;
+
+import org.kbit.common.MachineTemplate;
+import org.kbit.common.State;
+import org.kbit.common.data.PresentationData;
+import org.kbit.common.data.PresentationListData;
+import org.kbit.common.data.WorkInstruction;
+import org.kbit.common.senml.SenMLPack;
+import org.kbit.common.senml.SenMLRecord;
+
+public class Machine extends MachineTemplate implements Observer {
+
+	
+	State initializeState;
+	State awaitProductPresenceState;
+	State getProductIdentifierState;
+	State pullWorkorderState;
+	State updatePresentationState;
+	State notifyInstructorState;
+	State awaitProgressUpdateState;
+	State notifyWorkorderCompleteState;
+	
+	WorkServiceProvider workProvider;
+	PresenterServiceConsumer presenterServiceConsumer;
+	
+	
+	Scanner scanner;
+	
+
+	LinkedList<WorkInstruction> workInstructions;
+	
+	
+	public Machine() {
+		super("initializeState");
+		
+		initializeState = new InitializeState();
+		awaitProductPresenceState = new AwaitProductPresenceState();
+		getProductIdentifierState = new GetProductIdentifierState();
+		pullWorkorderState = new PullWorkorderState();
+		updatePresentationState = new UpdatePresentationState();
+		notifyInstructorState = new NotifyInstructorState();
+		awaitProgressUpdateState = new AwaitProgressUpdateState();
+		notifyWorkorderCompleteState = new NotifyWorkorderCompleteState();
+
+		this.addState("initializeState", initializeState, "true");
+		this.addState("awaitProductPresenceState", awaitProductPresenceState, "true");
+		this.addState("getProductIdentifierState", getProductIdentifierState, "true");
+		this.addState("pullWorkorderState", pullWorkorderState, "true");
+		this.addState("updatePresentationState", updatePresentationState, "true");
+		this.addState("notifyInstructorState", notifyInstructorState, "true");
+		this.addState("awaitProgressUpdateState", awaitProgressUpdateState, "true");
+		this.addState("notifyWorkorderCompleteState", notifyWorkorderCompleteState, "true");
+		
+
+		scanner = new Scanner(System.in);
+		
+		workInstructions = new LinkedList<WorkInstruction>();
+		
+	}
+	
+	public void addWorkProvider(WorkServiceProvider provider) {
+		this.workProvider = provider;
+	}
+	
+	public void addPresenterConsumer(PresenterServiceConsumer consumer) {
+		this.presenterServiceConsumer = consumer;
+	}
+
+	
+	public class InitializeState extends State {
+
+		@Override
+		public String action(Object arg) {
+			return "awaitProductPresenceState";
+		}
+		
+	}
+	
+	public class AwaitProductPresenceState extends State {
+
+		@Override
+		public String action(Object arg) {
+			System.out.println("Press Enter Key.");
+			scanner.nextLine();
+			return "getProductIdentifierState";
+			//return null;
+		}
+		
+	}
+	
+	public class GetProductIdentifierState extends State {
+
+		@Override
+		public String action(Object arg) {
+			return "pullWorkorderState";
+		}
+		
+	}
+	
+	public class PullWorkorderState extends State {
+
+		@Override
+		public String action(Object arg) {
+			
+			WorkInstruction work = new WorkInstruction();
+			
+			work.setId("uri:example");
+			work.setQuantity(5);
+			work.setSpecification("nutrunner");
+			work.setType(44);			
+			
+			workInstructions.add(work);
+			
+			work = new WorkInstruction();
+			
+			work.setId("scanner-01");
+			work.setQuantity(5);
+			work.setSpecification("Material Quality check");
+			work.setType(50);			
+			
+			workInstructions.add(work);
+			
+			work = new WorkInstruction();
+			
+			work.setId("Completed");
+			work.setQuantity(5);
+			work.setSpecification("Work complete");
+			work.setType(40);			
+			
+			workInstructions.add(work);
+			
+			return "updatePresentationState";
+		}
+		
+	}
+	
+	public class UpdatePresentationState extends State {
+
+		@Override
+		public String action(Object arg) {
+			//presenterServiceConsumer.sendNewInstructionList("[{\"id\":\"uri:example\",\"status\": \"incomplete\",\"text\": \"Nutrunner\",\"count\": \"5\",\"image\": \"na\",\"progress\": \"0/5\"}, {\"id\":61,\"status\": \"incomplete\",\"text\": \"part assure\",\"count\": \"1\",\"image\": \"\",\"progress\": \"0/1\"}, {\"id\":56789,\"status\": \"incomplete\",\"text\": \"Work completed (Quality check)\",\"count\": \"1\",\"image\": \"na\",\"progress\": \"0/1\"}]");
+			
+			
+			
+			//PresentationListData data = new PresentationListData();
+			LinkedList<PresentationData> data = new LinkedList<PresentationData>();
+			data.add(new PresentationData("{\"id\": \"Nutrunner\",\"status\": \"incomplete\",\"text\": \"Nutrunner\",\"count\": \"5\",\"image\": \"na\",\"progress\": \"0/5\"}"));
+			data.add(new PresentationData("{\"id\": \"quality\",\"status\": \"incomplete\",\"text\": \"Quality scan\",\"count\": \"1\",\"image\": \"na\",\"progress\": \"0/1\"}"));
+			//data.addToPresentatioNList(new PresentationData("[{\"n\": \"id\",\"vs\": \"uri:example\"}, {	\"n\": \"status\",\"vs\": \"incomplete\"}, {\"n\": \"text\",\"vs\": \"Nutrunner\"}, {\"n\": \"count\",\"vs\": \"5\"}, {\"n\": \"image\",\"vs\": \"na\"}, {\"n\": \"progress\",\"vs\": \"0/5\"}]"));
+			System.out.println("******** Presentation data in SenML: " + data.toSenMLString());
+			presenterServiceConsumer.sendNewInstructionList(data.toSenMLString());
+			
+			return "notifyInstructorState";
+		}
+		
+		
+	}
+	
+	public class NotifyInstructorState extends State {
+
+		@Override
+		public String action(Object arg) {
+			
+			
+			WorkInstruction work;
+			
+			
+			
+			if(!workInstructions.isEmpty()) {
+				work = workInstructions.removeFirst();
+				
+				workProvider.setWorkResource(work.toSenMLString());
+				return "awaitProgressUpdateState";
+			} else {
+
+				System.out.println("No Work order list available, await next product");
+				return "awaitProductPresenceState";
+			}			
+		}
+	}
+	
+	public class AwaitProgressUpdateState extends State {
+
+		@Override
+		public String action(Object arg) {
+			return null;
+		}
+		
+		
+	}
+	
+	public class NotifyWorkorderCompleteState extends State {
+
+		@Override
+		public String action(Object arg) {
+			workProvider.setWorkResource("clear");
+			return "awaitProductPresenceState";
+		}
+		
+		
+	}
+	
+	boolean running = true;
+	
+	@Override
+	public void run() {
+		while(running) {
+			
+			//if an event occurs then begin executing until guard condition not met 
+			perform();
+			
+			//sleep for a bit
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+	}
+
+	public boolean workProgressNotification(Object arg) {
+		switch (currentState) {
+			case "awaitProgressUpdateState":
+				System.out.println("> received progress update - moving to state to NotifyWorkorderCompleteState");
+				currentState = "notifyWorkorderCompleteState";
+				//System.out.println("executingState sendEquipmentInstructionState");
+				//perform();
+				return true;
+			default:
+				System.out.println("> received work notification while in wrong state..");//do nothing - not in right state for this input
+				return false;
+		}
+	}
+	
+	@Override
+	public void update(Observable o, Object arg) {
+		if (o instanceof WorkServiceProvider) {
+			System.out.println("Machine was notified of: " + ((WorkServiceProvider) arg).progress + " From WorkServiceProvider");
+			workProgressNotification(null);
+			
+		} 
+		
+	}
+
+	@Override
+	public void perform() {
+		String nextState = null;
+		do {
+			System.out.println("executingState " + currentState);
+			nextState = this.getState(currentState).action(null);
+			if(nextState != null) {
+				currentState = nextState;
+			}
+		} while(nextState != null);
+		
+	}
+
+}

@@ -1,0 +1,6 @@
+#this is a comment
+#nutrunner adaptor configuration file
+nutrunnerip = 192.168.0.35
+nutrunnerport = 4545
+ownip = 192.168.0.3
+serviceregistryip = 192.168.0.37

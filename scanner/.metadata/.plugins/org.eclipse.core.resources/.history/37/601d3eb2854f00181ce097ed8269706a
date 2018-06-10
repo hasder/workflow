@@ -1,0 +1,29 @@
+/**
+ * http://usejsdoc.org/
+ */
+
+
+var SerialPort = require('serialport');
+var port = new SerialPort('com2', {
+  baudRate: 9600
+});
+
+var buffer;
+
+//Read data that is available but keep the stream from entering "flowing mode"
+port.on('readable', function () {
+
+//	if(port.read() === 0d) {
+//		  console.log('buffer:', buffer);
+//		  buffer=null;
+//	} else {
+//		buffer += port.read().string;
+//	}
+
+});
+
+//Open errors will be emitted as an error event
+port.on('error', function(err) {
+  console.log('Error: ', err.message);
+});
+

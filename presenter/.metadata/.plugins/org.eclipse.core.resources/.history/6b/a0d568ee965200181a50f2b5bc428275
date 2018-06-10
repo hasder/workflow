@@ -1,0 +1,113 @@
+
+/**
+ * Module dependencies.
+ */
+
+var express = require('express')
+  , routes = require('./routes')
+  , user = require('./routes/user')
+  , app = express()
+  , http = require('http').Server(app)
+  , path = require('path')
+  , coap = require('coap')
+  , io   = require('socket.io')(http);
+
+//var app = express();
+
+// all environments
+//app.set('port', process.env.PORT || 3000);
+//app.set('views', __dirname + '/views');
+//app.set('view engine', 'jade');
+//app.use(express.favicon());
+//app.use(express.logger('dev'));
+//app.use(express.bodyParser());
+//app.use(express.methodOverride());
+//app.use(app.router);
+//app.use(express.static(path.join(__dirname, 'public')));
+
+// development only
+//if ('development' === app.get('env')) {
+//  app.use(express.errorHandler());
+//}
+//
+//app.get('/', routes.index);
+//app.get('/users', user.list);
+//
+//http.createServer(app).listen(app.get('port'), function(){
+//  console.log('Express server listening on port ' + app.get('port'));
+//});
+
+io.on('connection', (socket) => {
+	console.log('user connected');
+	  
+	socket.on('disconnect', function(){
+		console.log('user disconnected');
+	});
+	  
+	socket.on('add-message', (message) => {
+		io.emit('message', {type:'new-message', text: message});    
+	});
+});
+
+http.listen(5000, () => {
+  console.log('started on port 5000');
+});
+
+
+var instruction = {
+		'id':'123',
+		'status':'',
+		'text':'',
+		'count':'',
+		'image':'',
+		'progress':''
+};
+
+
+var message = {};
+
+
+var server = coap.createServer();
+server.on('request',function(req, res) {
+	if (req.method == 'PUT') {
+
+		var instructions2 = [];
+		var payloadObject = JSON.parse(req.payload);
+		payloadObject.map(function(entry) {
+			var temp = {};
+			temp.id = entry.id;
+			temp.status = entry.status;
+			temp.text = entry.text;
+			temp.count = entry.count;
+			temp.image = entry.image;
+			temp.progress = entry.progress;
+			
+			instructions2.push(temp);
+		});
+		
+		
+		console.log(instructions2);
+		message.text = 'PUT' + instructions2;//JSON.parse(req.payload);
+		io.emit('message', message);
+		res.end('Done: ' +req.payload + '\n');
+	} else if (req.method == 'POST') {
+		//io.emit('message', {type:'new-message', text: JSON.parse(req.payload)});
+		var payloadObject = JSON.parse(req.payload);
+		
+		var temp = {};
+		temp.id = payloadObject.id;
+		temp.status = payloadObject.status;
+		temp.text = payloadObject.text;
+		temp.count = payloadObject.count;
+		temp.image = payloadObject.image;
+		temp.progress = payloadObject.progress;
+		
+		message.text = temp;
+		io.emit('update', message);
+		res.end('Done: ' +req.payload + '\n');
+	} else {
+		res.end('Hello ' + req.url.split('/')[1] + '\n');
+	}
+});
+
+server.listen(8888);

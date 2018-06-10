@@ -1,0 +1,276 @@
+package org.hasder.workflowexecutor;
+
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
+import org.eclipse.californium.core.CoapClient;
+import org.eclipse.californium.core.CoapHandler;
+import org.eclipse.californium.core.CoapResponse;
+import org.eclipse.californium.core.coap.MediaTypeRegistry;
+
+import com.google.gson.Gson;
+
+import it.eng.productunithubledgerclient.model.ProcessStep;
+
+public class WorkflowExecutor {
+	private final ScheduledExecutorService schedular = Executors.newScheduledThreadPool(1);
+	private ScheduledFuture<?> wm;
+	private ScheduledFuture<?> lj;
+	ProcessStep processStep;
+	
+	
+	int nutrunnercounter = 0;
+	int nutrunnerbatch = 0;
+
+	public static void main(String[] args) {
+
+		WorkflowExecutor workflowExecutor = new WorkflowExecutor();
+
+		//workflowExecutor.putInstructionList();
+
+		workflowExecutor.startRunnableGetWorkflowMachine();
+
+	}
+
+	public WorkflowExecutor() {
+
+	}
+
+	public void startRunnableGetWorkflowMachine() {
+		this.wm = this.schedular.scheduleWithFixedDelay(runnableGetWorkflowMachine, 1, 1, TimeUnit.SECONDS);
+	}
+
+	final Runnable runnableGetWorkflowMachine = new Runnable() {
+		public void run() {
+			if (!getWorkflowMachine()) {
+				wm.cancel(false);
+				putInstructionList();
+			}
+		}
+	};
+	
+	public boolean getWorkflowMachine() {
+		System.out.println("getWorkflowMachine");
+
+		// StringBuilder serviceBuilder = new StringBuilder();
+		// serviceBuilder.append("{\"name\":\"workflowmanager-abc123\"");
+		// serviceBuilder.append("}");
+		//
+		// String service = serviceBuilder.toString();
+		// System.out.println(service);
+
+		// "http://130.240.234.222:1100/servicediscovery/service/";
+		//String srurl = "http://127.0.0.1:1100/servicediscovery/publish/";
+		String srurl = "http://127.0.0.1:8081/work/";
+
+		boolean responseCode = true;
+		
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			HttpGet request = new HttpGet(srurl);
+			request.addHeader("accept", "application/json");
+
+			HttpResponse response = httpClient.execute(request);
+
+			System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
+
+			if (response.getStatusLine().getStatusCode() != 200) {
+				throw new RuntimeException("Failed : HTTP error code : " + response.getStatusLine().getStatusCode());
+			}
+
+			String responseText =  EntityUtils.toString(response.getEntity());
+			System.out.println("Response Body : " + responseText);
+			
+			if(responseText.length() > 0) {
+				processStep = new Gson().fromJson(responseText, ProcessStep.class);
+				responseCode = false;
+			}
+			
+
+		} catch (ClientProtocolException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+
+		return responseCode;
+
+	}
+
+	public boolean putInstructionList() {
+		System.out.println("putInstructionList");
+
+		String displayServer = "coap://127.0.0.1:8888/";
+		CoapClient coapClient = new CoapClient(displayServer);
+		nutrunnercounter=0;
+		nutrunnerbatch=processStep.getBillOfOperation().iterator().next().getEquipmentRequirements().iterator().next().getSpecifications().iterator().next().getQuantity();
+		
+		LinkedList<PresentationData> data = new LinkedList<PresentationData>();
+		data.add(new PresentationData(
+				"{\"id\": \"nutrunner\",\"status\": \"incomplete\",\"text\": \""+processStep.getBillOfOperation().iterator().next().getInstructionTexts()+"\",\"count\": \""+nutrunnerbatch+"\",\"image\": \"na\",\"progress\": \"0/"+nutrunnerbatch+"\"}"));
+//		data.add(new PresentationData(
+//				"{\"id\": \"quality\",\"status\": \"incomplete\",\"text\": \"Quality scan\",\"count\": \"1\",\"image\": \"na\",\"progress\": \"0/1\"}"));
+//		data.add(new PresentationData(
+//				"{\"id\": \"completed\",\"status\": \"incomplete\",\"text\": \"Hit the 'F' key when finished\",\"count\": \"1\",\"image\": \"na\",\"progress\": \"0/1\"}"));
+
+		coapClient.put(new CoapClientResponseHandler(), new Gson().toJson(data), 0);
+
+		try {
+			Thread.sleep(300);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		postJobToNutrunner();
+		return false;
+
+	}
+
+	class CoapClientResponseHandler implements CoapHandler {
+
+		@Override
+		public void onError() {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void onLoad(CoapResponse arg0) {
+			System.out.print("CoapResponse text: " + arg0.getResponseText());
+
+		}
+
+	}
+
+	public boolean postJobToNutrunner() {
+		System.out.println("postJobToNutrunner");
+		
+		String srurl = "http://192.168.0.37:8085/job";
+
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			HttpPost regRequest = new HttpPost(srurl);
+			regRequest.addHeader("content-type", "application/json");
+
+			regRequest.setEntity(new StringEntity("{\"test\":\"data\"}"));
+
+			HttpResponse response = httpClient.execute(regRequest);
+
+			System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
+
+			if (response.getStatusLine().getStatusCode() != 200) {
+				throw new RuntimeException("Failed : HTTP error code : " + response.getStatusLine().getStatusCode());
+			}
+
+		} catch (ClientProtocolException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+
+		startRunnableGetLastJobNotice();
+		return false;
+	}
+
+	public boolean postInstructionUpdate() {
+		System.out.println("postInstructionUpdate");
+		
+		String displayServer = "coap://127.0.0.1:8888/";
+		CoapClient coapClient = new CoapClient(displayServer);
+
+
+		LinkedList<PresentationData> data = new LinkedList<PresentationData>();
+		if (nutrunnercounter >= nutrunnerbatch) {
+			data.add(new PresentationData( "{\"id\": \"nutrunner\",\"status\": \"complete\",\"text\": \""+processStep.getBillOfOperation().iterator().next().getInstructionTexts().iterator().next().getText()+"\",\"count\": \""+nutrunnerbatch+"\",\"image\": \"na\",\"progress\": \"" + nutrunnercounter + "/"+nutrunnerbatch+"\"}"));
+
+		} else {
+			data.add(new PresentationData( "{\"id\": \"nutrunner\",\"status\": \"incomplete\",\"text\": \""+processStep.getBillOfOperation().iterator().next().getInstructionTexts().iterator().next().getText()+"\",\"count\": \""+nutrunnerbatch+"\",\"image\": \"na\",\"progress\": \"" + nutrunnercounter + "/"+nutrunnerbatch+"\"}"));
+		}
+		coapClient.post(new CoapClientResponseHandler(), new Gson().toJson(data), MediaTypeRegistry.APPLICATION_JSON);
+
+		try {
+			Thread.sleep(300);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return false;
+	}
+
+	public void startRunnableGetLastJobNotice() {
+		this.lj = this.schedular.scheduleWithFixedDelay(runnableLastJobNotifier, 1, 1, TimeUnit.SECONDS);
+	}
+	
+	final Runnable runnableLastJobNotifier = new Runnable() {
+		public void run() {
+			if(!getLastJobFromNutrunner()) {
+				lj.cancel(false);
+				startRunnableGetWorkflowMachine();
+			}
+		}
+	};
+	int previous = 0;
+	public boolean getLastJobFromNutrunner() {
+		System.out.println("getLastJobFromNutrunner");
+		String srurl = "http://192.168.0.37:8085/lastjob";
+		boolean returnCode = true;
+		
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			HttpGet request = new HttpGet(srurl);
+			//request.addHeader("accept", "application/json");
+
+			HttpResponse response = httpClient.execute(request);
+
+			System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
+
+			if (response.getStatusLine().getStatusCode() != 200) {
+				throw new RuntimeException("Failed : HTTP error code : " + response.getStatusLine().getStatusCode());
+			}
+			
+			String responseText = EntityUtils.toString(response.getEntity());
+
+			System.out.println("Response Body : " + responseText);
+			int current = Integer.parseInt(responseText);
+			//if(responseText.length()>1)  {
+			if(previous != current)  {
+				previous = current;
+				//nutrunnercounter++;
+				nutrunnercounter = current;
+				postInstructionUpdate();
+				if(nutrunnercounter>=5) {
+					returnCode = false;
+				}
+			}
+
+		} catch (ClientProtocolException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+
+		return returnCode;
+	}
+}

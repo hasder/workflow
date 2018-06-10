@@ -1,0 +1,25 @@
+package org.kit.workflow;
+
+/*
+ * TheBusiness
+ * Description: This class will take the production order and turn it into a consumable state machine for the workflow executor.
+ * The productionorderService consumer object will push new production orders here.
+ * the business will update the workservice provider with the new executor state machine
+ * 
+ * 
+ */
+public class TheBusiness {
+
+	
+	
+	
+	private class Guts implements Runnable {
+
+		@Override
+		public void run() {
+			
+			
+		}
+		
+	}
+}

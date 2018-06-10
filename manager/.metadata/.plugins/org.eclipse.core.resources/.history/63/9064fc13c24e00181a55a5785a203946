@@ -1,0 +1,98 @@
+package org.kit.workflow;
+
+import java.io.IOException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+
+public class ServiceRegistration {
+
+	private ServiceRegistration serviceRegistrationThread = new ServiceRegistration();
+	private final ScheduledExecutorService schedular = Executors.newScheduledThreadPool(1);
+
+	public ServiceRegistration() {
+	}
+
+	public boolean doPeriodicRegistration() {
+
+		schedular.schedule(runnableRegister, 0, 30, TimeUnit.SECONDS);
+
+		return false;
+
+	}
+	
+	final Runnable runnableRegister = new Runnable() {
+       public void run() { doRegistration(); }
+     };
+
+	public boolean doRegistration() {
+
+		StringBuilder serviceBuilder = new StringBuilder();
+		serviceBuilder.append("{\"name\":\"workflowmanager-abc123\",");
+		serviceBuilder.append("\"type\":\"workflowmanager._http-json._tcp\",");
+		serviceBuilder.append("\"host\":\"127.0.0.1\", \"port\":\"8888\",");
+		serviceBuilder.append("\"domain\":\"unknown\",");
+		serviceBuilder.append("\"properties\":{");
+		serviceBuilder.append("\"property\":");
+		serviceBuilder.append("[");
+		serviceBuilder.append("{");
+		serviceBuilder.append("\"name\":\"version\",");
+		serviceBuilder.append("\"value\":\"1.0\"");
+		serviceBuilder.append("},");
+		serviceBuilder.append("{");
+		serviceBuilder.append("\"name\":\"path\",");
+		serviceBuilder.append("\"value\":\"/workflowmanager\",");
+		serviceBuilder.append("\"loc\":\"Station-01\"");
+		serviceBuilder.append("}");
+		serviceBuilder.append("]");
+		serviceBuilder.append("}}");
+
+		String service = serviceBuilder.toString();
+		System.out.println(service);
+
+		// String srurl =
+		// "http://130.240.234.222:1100/servicediscovery/service/";
+		String srurl = "http://127.0.0.1:1100/servicediscovery/publish/";
+
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			HttpPost regRequest = new HttpPost(srurl);
+			regRequest.addHeader("content-type", "application/json");
+
+			regRequest.setEntity(new StringEntity(service));
+
+			HttpResponse response = httpClient.execute(regRequest);
+
+			System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
+
+			if (response.getStatusLine().getStatusCode() != 200) {
+				throw new RuntimeException("Failed : HTTP error code : " + response.getStatusLine().getStatusCode());
+			}
+
+		} catch (ClientProtocolException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+
+		return false;
+
+	}
+
+	@Override
+	public void run() {
+		doRegistration();
+	}
+
+}

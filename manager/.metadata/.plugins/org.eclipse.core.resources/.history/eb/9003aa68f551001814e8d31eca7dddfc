@@ -1,0 +1,175 @@
+package org.kit.workflow;
+
+import java.io.IOException;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLContext;
+
+import org.apache.http.ExceptionLogger;
+import org.apache.http.HttpConnection;
+import org.apache.http.HttpException;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.MethodNotSupportedException;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.nio.bootstrap.HttpServer;
+import org.apache.http.impl.nio.bootstrap.ServerBootstrap;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.nio.entity.NStringEntity;
+import org.apache.http.nio.protocol.BasicAsyncRequestConsumer;
+import org.apache.http.nio.protocol.BasicAsyncResponseProducer;
+import org.apache.http.nio.protocol.HttpAsyncExchange;
+import org.apache.http.nio.protocol.HttpAsyncRequestConsumer;
+import org.apache.http.nio.protocol.HttpAsyncRequestHandler;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.protocol.HttpCoreContext;
+import org.apache.http.util.EntityUtils;
+
+public class WorkService {
+
+	public WorkService() {  }
+	
+	public void setWorkStatemachine() {
+		String srurl = "http://192.168.0.37:1100/nutrunner/job";
+		
+		try {
+			HttpClient httpClient = HttpClientBuilder.create().build();
+			HttpGet getRequest = new HttpGet(srurl);
+			getRequest.addHeader("accept", "application/json");
+
+			HttpResponse response = httpClient.execute(getRequest);
+
+			System.out.println("Response Code : " + response.getStatusLine().getStatusCode());
+
+			if (response.getStatusLine().getStatusCode() != 200) {
+				throw new RuntimeException(
+						"Failed : HTTP error code : " + response.getStatusLine().getStatusCode());
+			}
+			System.out.println("body: " + EntityUtils.toString(response.getEntity()));
+			theBusiness.performProductionorder(EntityUtils.toString(response.getEntity()));
+
+		} catch (ClientProtocolException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+	}
+
+	public void startServiceProvider() throws Exception {
+
+		int port = 8081;
+
+		SSLContext sslContext = null;
+		// if (port == 8443) {
+		// // Initialize SSL context
+		// final URL url = NHttpFileServer.class.getResource("/test.keystore");
+		// if (url == null) {
+		// System.out.println("Keystore not found");
+		// System.exit(1);
+		// }
+		// System.out.println("Loading keystore " + url);
+		// sslContext = SSLContexts.custom()
+		// .loadKeyMaterial(url, "nopassword".toCharArray(),
+		// "nopassword".toCharArray())
+		// .build();
+		// }
+
+		final IOReactorConfig config = IOReactorConfig.custom().setSoTimeout(15000).setTcpNoDelay(true).build();
+
+		final HttpServer server = ServerBootstrap.bootstrap().setListenerPort(port).setServerInfo("Test/1.1")
+				.setIOReactorConfig(config).setSslContext(sslContext).setExceptionLogger(ExceptionLogger.STD_ERR)
+				.registerHandler("*", new HttpRequestHandler()).create();
+
+		server.start();
+		System.out.println("Serving service on " + server.getEndpoint().getAddress()
+				+ (sslContext == null ? "" : " with " + sslContext.getProvider() + " " + sslContext.getProtocol()));
+		//server.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);
+
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				server.shutdown(5, TimeUnit.SECONDS);
+			}
+		});
+	}
+
+	static class HttpRequestHandler implements HttpAsyncRequestHandler<HttpRequest> {
+
+
+
+		public HttpRequestHandler() {
+			super();
+		}
+
+		public HttpAsyncRequestConsumer<HttpRequest> processRequest(final HttpRequest request,
+				final HttpContext context) {
+			// Buffer request content in memory for simplicity
+			return new BasicAsyncRequestConsumer();
+		}
+
+		public void handle(final HttpRequest request, final HttpAsyncExchange httpexchange, final HttpContext context)
+				throws HttpException, IOException {
+			final HttpResponse response = httpexchange.getResponse();
+			handleInternal(request, response, context);
+			httpexchange.submitResponse(new BasicAsyncResponseProducer(response));
+		}
+
+		private void handleInternal(final HttpRequest request, final HttpResponse response, final HttpContext context)
+				throws HttpException, IOException {
+
+			final String method = request.getRequestLine().getMethod().toUpperCase(Locale.ENGLISH);
+			if (!method.equals("GET") && !method.equals("HEAD") && !method.equals("POST")) {
+				throw new MethodNotSupportedException(method + " method not supported");
+			}
+
+			final String target = request.getRequestLine().getUri();
+			
+			final HttpCoreContext coreContext = HttpCoreContext.adapt(context);
+			final HttpConnection conn = coreContext.getConnection(HttpConnection.class);
+			response.setStatusCode(HttpStatus.SC_OK);
+			final NStringEntity body = new NStringEntity("{\"Response from service\":\"work\",\"target\":\"" + target + "\"}", ContentType.APPLICATION_JSON);
+			//final NFileEntity body = new NFileEntity(file, ContentType.create("text/html"));
+			response.setEntity(body);
+			System.out.println(conn + ": sending a json string entity ");
+			
+//			final File file = new File(this.docRoot, URLDecoder.decode(target, "UTF-8"));
+//			if (!file.exists()) {
+//
+//				response.setStatusCode(HttpStatus.SC_NOT_FOUND);
+//				final NStringEntity entity = new NStringEntity(
+//						"<html><body><h1>File " + file.getPath() + " not found</h1></body></html>",
+//						ContentType.create("text/html", "UTF-8"));
+//				response.setEntity(entity);
+//				System.out.println("File " + file.getPath() + " not found");
+//
+//			} else if (!file.canRead() || file.isDirectory()) {
+//
+//				response.setStatusCode(HttpStatus.SC_FORBIDDEN);
+//				final NStringEntity entity = new NStringEntity("<html><body><h1>Access denied</h1></body></html>",
+//						ContentType.create("text/html", "UTF-8"));
+//				response.setEntity(entity);
+//				System.out.println("Cannot read file " + file.getPath());
+//
+//			} else {
+//
+//				final HttpCoreContext coreContext = HttpCoreContext.adapt(context);
+//				final HttpConnection conn = coreContext.getConnection(HttpConnection.class);
+//				response.setStatusCode(HttpStatus.SC_OK);
+//				final NFileEntity body = new NFileEntity(file, ContentType.create("text/html"));
+//				response.setEntity(body);
+//				System.out.println(conn + ": serving file " + file.getPath());
+//			}
+		}
+
+	}
+
+}

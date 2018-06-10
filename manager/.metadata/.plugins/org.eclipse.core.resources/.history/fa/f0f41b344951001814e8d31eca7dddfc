@@ -1,0 +1,41 @@
+package org.kit.workflow;
+
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+
+/*
+ * TheBusiness
+ * Description: This class will take the production order and turn it into a consumable state machine for the workflow executor.
+ * The productionorderService consumer object will push new production orders here.
+ * the business will update the workservice provider with the new executor state machine
+ * 
+ * 
+ */
+public class TheBusiness {
+
+	List<String> orderQueueue = Collections.synchronizedList(new LinkedList<String>());
+	
+	
+	public void performProductionorder(String order) {
+		orderQueueue.add(order);
+	}
+	
+	private class Guts implements Runnable {
+
+		@Override
+		public void run() {
+			while(true) {
+				if (!orderQueueue.isEmpty())
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+		}
+		
+	}
+}

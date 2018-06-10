@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+<fullyQualifiedTypeName name="org.apache.http.client.HttpClient"/>
+<fullyQualifiedTypeName name="org.apache.http.impl.client.HttpClientBuilder"/>
+<fullyQualifiedTypeName name="org.apache.http.HttpResponse"/>
+<fullyQualifiedTypeName name="org.apache.http.client.ClientProtocolException"/>
+<fullyQualifiedTypeName name="java.io.IOException"/>
+<fullyQualifiedTypeName name="org.apache.http.client.methods.HttpGet"/>
+<fullyQualifiedTypeName name="org.apache.http.util.EntityUtils"/>
+<fullyQualifiedTypeName name="java.util.concurrent.ScheduledExecutorService"/>
+<fullyQualifiedTypeName name="java.util.concurrent.ScheduledFuture"/>
+<fullyQualifiedTypeName name="java.util.concurrent.Executors"/>
+<fullyQualifiedTypeName name="java.util.concurrent.TimeUnit"/>
+<fullyQualifiedTypeName name="org.eclipse.californium.core.coap.CoAP"/>
+<fullyQualifiedTypeName name="org.eclipse.californium.core.CoapClient.Builder"/>
+<fullyQualifiedTypeName name="org.eclipse.californium.core.CoapClient"/>
+<fullyQualifiedTypeName name="org.eclipse.californium.core.CoapHandler"/>
+<fullyQualifiedTypeName name="java.util.LinkedList"/>
+<fullyQualifiedTypeName name="com.google.gson.Gson"/>
+<fullyQualifiedTypeName name="org.apache.http.client.methods.HttpPost"/>
+<fullyQualifiedTypeName name="org.apache.http.entity.StringEntity"/>
+<fullyQualifiedTypeName name="org.eclipse.californium.core.coap.CoAP.MessageFormat"/>
+<fullyQualifiedTypeName name="org.eclipse.californium.core.coap.MediaTypeRegistry"/>
+<fullyQualifiedTypeName name="it.eng.productunithubledgerclient.model.ProcessStep"/>
+</qualifiedTypeNameHistroy>
